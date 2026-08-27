@@ -84,7 +84,7 @@
                 "rastair_rscript_dir": {
                     "type": "string",
                     "fa_icon": "fas fa-folder",
-                    "description": "Path to directory containing rastair R scripts (mbias.R, QC_report_jax.Rmd, perChr_mbias_chr.R, render_allChr_mbias.R, allChr_mbias_report_jax.Rmd). Defaults to assets/rastair_scripts/ inside the pipeline. Use empty string to use container built-ins."
+                    "description": "Path to directory containing rastair R scripts (mbias.R, QC_report_jax.Rmd, perChr_mbias_chr.R, render_allChr_mbias.R, allChr_mbias_report_jax.Rmd). Defaults to bin/rastair_scripts/ inside the pipeline. Use empty string to use container built-ins."
                 },
                 "plot_vbias": {
                     "type": "boolean",

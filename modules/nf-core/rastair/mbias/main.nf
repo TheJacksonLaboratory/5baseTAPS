@@ -2,9 +2,7 @@ process RASTAIR_MBIAS {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://sbludwig/rastair:version-2.1.1' :
-        'sbludwig/rastair:version-2.1.1' }"
+    container 'docker://sbludwig/rastair:version-2.1.1'
 
     input:
     tuple val(meta), path(bed), path(tbi)

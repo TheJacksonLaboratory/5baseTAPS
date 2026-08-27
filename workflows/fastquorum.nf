@@ -126,7 +126,7 @@ workflow FASTQUORUM {
         MERGE_CHUNKS(
             ALIGN_RAW_CHUNK.out.bam
                 .map { meta_chunk, bam -> [meta_chunk.findAll { k, v -> k != 'chunk' }, bam] }
-                .groupTuple(size: params.align_raw_bam_chunks)
+                .groupTuple(size: params.align_raw_bam_chunks as Integer)
         )
         ch_versions = ch_versions.mix(MERGE_CHUNKS.out.versions.first())
 
