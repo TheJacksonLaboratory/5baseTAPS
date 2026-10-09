@@ -289,7 +289,7 @@ params {
 
 **Cost:** the annotation is scattered per chromosome, so it adds about 220 tasks per sample (24 chromosomes × 3 VCFs × 3 steps, plus 4 selection and merge tasks). Keep your scheduler's job-submission limit in mind, as for `--align_raw_bam_chunks`.
 
-The fields added are described in [docs/output.md](output.md#annotated-vcfs).
+The fields added are described in [docs/output.md](output.md#annotated-vcfs-optional).
 
 #### Preparing the ClinVar file
 

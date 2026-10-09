@@ -158,7 +158,8 @@ nextflow run . \
 ├── <sample>/
 │   ├── bam/               — duplex consensus BAM + index
 │   ├── methylation/       — per-CpG BED/VCF, per-read BED, M-bias HTML, methylKit, summaries
-│   ├── variants/          — GATK VCFs, CpG site mask
+│   │                        (+ annotated rastair VCF with --annotate_vcf)
+│   ├── variants/          — GATK VCFs, CpG site mask (+ annotated GATK VCFs with --annotate_vcf)
 │   └── qc/                — per-sample QC (alignment, coverage, duplex, FastQC, variant)
 ├── report/                — MultiQC HTML report
 └── pipeline_info/         — Nextflow execution reports and parameter logs

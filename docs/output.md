@@ -333,14 +333,26 @@ These files are used to estimate TAPS conversion efficiency and validate assay p
 
 * **`<sample>/variants/<sample>.haplotypecaller.vcf.gz`** / **`.tbi`**: Unfiltered merged VCF from all 24 scattered HaplotypeCaller shards (chr1–22, X, Y). Use the `FILTER` field (`PASS` vs `DRAGENHardQUAL`) to select high-confidence variants.
 
+* **Annotated copies (optional, `--annotate_vcf`)**: `<sample>.haplotypecaller.filtered-SNP.annotated.vcf.gz` and `...-INDEL.annotated.vcf.gz` in `variants/`, `<sample>.rastair_call.annotated.vcf.gz` in `methylation/`. See [Annotated VCFs](#annotated-vcfs-optional) below.
+
 * **`<sample>/variants/<sample>.rastair_cpg_sites.bed.gz`** / **`.tbi`**: 3-column BED of all CpG positions called by rastair (REF CpGs + SNP-created NEW CpGs), with adjacent CpG strand pairs merged. This is the sample-specific CpG exclusion mask passed to GATK HaplotypeCaller via `--exclude-intervals`. Useful as a benchmarking reference for comparing called CpG sites against other callers or genome-wide CpG annotations.
 
-### Annotated VCFs
+#### Annotated VCFs (optional)
 
 Written only with `--annotate_vcf true` (GRCh38 only, see [docs/usage.md](usage.md#annotated-vcfs---annotate_vcf)):
 `<sample>.haplotypecaller.filtered-SNP.annotated.vcf.gz`, `<sample>.haplotypecaller.filtered-INDEL.annotated.vcf.gz` (in `variants/`) and `<sample>.rastair_call.annotated.vcf.gz` (in `methylation/`), each with a `.tbi` index. Each is a copy of its original VCF with annotation added; CHROM, POS, REF, ALT, QUAL, FILTER and the sample columns are unchanged, so `FILTER` values (`PASS`, `DRAGENHardQUAL`, ...) carry over. (`QUAL` keeps its value but may be written as `8.0` instead of `8`.)
 
 > **The rastair annotated file is a subset of `rastair_call.vcf.gz`:** records with a real ALT allele, on `chr1`–`chr22`, `chrX`, `chrY` (`--annotate_chroms`). CpG methylation rows (`ALT=.`) and variant records on other contigs are not included. The GATK annotated files contain the same records as their originals.
+
+**Sources** (versions as configured on the JAX Elion cluster; other sites set their own in the genome config):
+
+| Source | Used for | Version | Reference |
+|--------|----------|---------|-----------|
+| dbSNP | rsID in the `ID` column | build 151 (`dbsnp_151.vcf.gz`) | https://www.ncbi.nlm.nih.gov/snp/ |
+| gnomAD | population allele frequency (`gnomAD_AF`) | `af-only-gnomad.hg38`, the GATK germline resource derived from gnomAD (the file header does not state the gnomAD release) | https://gnomad.broadinstitute.org/ |
+| ClinVar | clinical significance | release 2026-10-04 (named in the `clinvar` path) | https://www.ncbi.nlm.nih.gov/clinvar/ |
+| SnpEff | functional consequence on transcripts (`ANN`) | 5.1d, database `hg38` | https://pcingola.github.io/SnpEff/ (ANN field: https://pcingola.github.io/SnpEff/snpeff/inputoutput/) |
+| dbNSFP | in-silico scores for missense variants | 4.2a | https://www.dbnsfp.org/ (scores: SIFT, [PolyPhen-2](http://genetics.bwh.harvard.edu/pph2/), [REVEL](https://sites.google.com/site/revelgenomics/), [CADD](https://cadd.gs.washington.edu/)) |
 
 | Added field | Source | Meaning |
 |-------------|--------|---------|
@@ -349,6 +361,21 @@ Written only with `--annotate_vcf true` (GRCh38 only, see [docs/usage.md](usage.
 | `INFO/CLNSIG`, `CLNREVSTAT`, `CLNDN`, `CLNDISDB`, `GENEINFO`, `ALLELEID` | ClinVar (the release is the one named in the `clinvar` path of the genome config, for example `clinvar_20261004...`; the path is recorded in the VCF header's `##bcftools_annotateCommand` line) | Germline classification, review status, disease name and IDs, gene, ClinVar allele ID. A ClinVar match can lack `CLNSIG` when ClinVar holds no germline classification for it (`ALLELEID` is then still present). |
 | `INFO/ANN`, `LOF`, `NMD` | SnpEff 5.1d, database `hg38` (RefSeq transcripts) | Functional consequence, one entry per transcript: Allele \| Annotation \| Annotation_Impact \| Gene_Name \| Gene_ID \| Feature_Type \| Feature_ID \| Transcript_BioType \| Rank \| HGVS.c \| HGVS.p \| cDNA.pos/length \| CDS.pos/length \| AA.pos/length \| Distance \| ERRORS/WARNINGS/INFO |
 | `INFO/dbNSFP_SIFT_score`, `dbNSFP_SIFT_pred`, `dbNSFP_Polyphen2_HDIV_pred`, `dbNSFP_REVEL_score`, `dbNSFP_CADD_phred`, `dbNSFP_aapos`, `dbNSFP_Ensembl_transcriptid`, `dbNSFP_genename` | dbNSFP 4.2a via SnpSift 5.1d | In-silico scores for missense SNVs. These are **comma-separated lists with one value per Ensembl transcript**, in the same order as `dbNSFP_Ensembl_transcriptid`, although the VCF header declares them `Number=A`. SIFT: score below 0.05 is predicted damaging (`D`), otherwise tolerated (`T`). |
+
+**Reading the values**
+
+* **`gnomAD_AF`:** overall allele frequency in gnomAD (the resource has no per-ancestry breakdown). A rare variant has a small value; no value means the allele is not in the resource.
+* **`CLNSIG`:** ClinVar's aggregate germline classification. The standard terms are `Pathogenic`, `Likely_pathogenic`, `Uncertain_significance`, `Likely_benign` and `Benign` (ACMG/AMP terms, see https://www.ncbi.nlm.nih.gov/clinvar/docs/clinsig/); others such as `risk_factor` also occur. `CLNREVSTAT` says how well supported the classification is (see https://www.ncbi.nlm.nih.gov/clinvar/docs/review_status/).
+* **`ANN` impact (third field):** `HIGH` = probably disrupts the protein (for example `stop_gained`, `frameshift_variant`); `MODERATE` = non-disruptive but may change protein function (for example `missense_variant`); `LOW` = mostly harmless (for example `synonymous_variant`); `MODIFIER` = mostly non-coding, effect hard to predict. With several transcripts, SnpEff lists the effects sorted by putative impact first. Definitions: https://pcingola.github.io/SnpEff/snpeff/inputoutput/.
+* **dbNSFP scores** (from the dbNSFP 4.2a readme):
+  * `dbNSFP_SIFT_score`: 0 to 1, **smaller = more likely damaging**. `dbNSFP_SIFT_pred` is `D` (damaging) below 0.05, otherwise `T` (tolerated).
+  * `dbNSFP_Polyphen2_HDIV_pred`: `D` probably damaging, `P` possibly damaging, `B` benign.
+  * `dbNSFP_REVEL_score`: 0 to 1, an ensemble of 13 scores, **larger = more likely damaging**.
+  * `dbNSFP_CADD_phred`: phred-like rank score, **larger = more likely damaging**.
+  * `dbNSFP_aapos`: amino-acid position (`-1` for splice-site variants).
+  * These are scores for missense (non-synonymous) variants; other variants have no value.
+* **Licences:** the dbNSFP readme states that REVEL scores are free for non-commercial use and CADD scores are free for academic, non-commercial applications. Check these licences before commercial use.
+* **Use:** these are annotations from public resources at the versions above, for research use. They are lookups and predictions, not a clinical interpretation.
 
 The exact commands and resource paths used are recorded in the VCF header (`##bcftools_annotateCommand`, `##SnpEffCmd`, `##SnpSiftCmd`).
 
