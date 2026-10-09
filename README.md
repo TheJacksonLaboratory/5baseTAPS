@@ -144,7 +144,7 @@ nextflow run . \
 | `--filter_min_reads` | `1 0 0` | Minimum reads to retain a duplex consensus (format: `AB SS DS`) |
 | `--filter_max_base_error_rate` | `0.1` | Maximum per-base error rate for consensus filtering |
 | `--duplex_seq` | `true` | Enable duplex consensus mode (set `false` for single-strand UMI libraries) |
-| `--rastair_rscript_dir` | `null` | Override rastair R scripts directory (uses bundled `assets/rastair_scripts/` by default) |
+| `--rastair_rscript_dir` | `null` | Override rastair R scripts directory (uses bundled `bin/rastair_scripts/` by default) |
 
 ---
 

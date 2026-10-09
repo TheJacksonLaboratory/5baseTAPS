@@ -8,9 +8,9 @@ process TAPS_MULTIQC {
         : 'biocontainers/multiqc:1.35--pyhdfd78af_1' }"
 
     input:
-    val(trigger)   // ordering trigger — collects upstream channel items to ensure all
-                   // publishDir writes are complete before this process runs
-    val(genome)    // reference genome name for methylation column label (e.g. CHM13, GRCh38)
+    path multiqc_files, stageAs: "?/*"
+    path multiqc_config
+    path multiqc_logo
 
     output:
     path "5-baseTAPS_multiqc_report.html", emit: report
@@ -22,19 +22,13 @@ process TAPS_MULTIQC {
     task.ext.when == null || task.ext.when
 
     script:
-    def abs_outdir = file(params.outdir)
     """
-    python3 ${projectDir}/bin/run_multiQC.py \\
-        ${abs_outdir} \\
-        --genome "${genome}" \\
-        --mqc-outdir ./mqc_work \\
-        --multiqc multiqc
-
-    cp    ${abs_outdir}/report/5-baseTAPS_multiqc_report.html .
-    cp -r ${abs_outdir}/report/5-baseTAPS_multiqc_report_data/ .
-    [ -d  ${abs_outdir}/report/5-baseTAPS_multiqc_report_plots ] \\
-        && cp -r ${abs_outdir}/report/5-baseTAPS_multiqc_report_plots/ . \\
-        || true
+    multiqc . \\
+        --outdir . \\
+        --filename 5-baseTAPS_multiqc_report \\
+        --force \\
+        --config ${multiqc_config} \\
+        --cl-config 'custom_logo: "${multiqc_logo}"'
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -219,16 +219,18 @@ workflow JAXGT_5BASETAPS {
     }
 
     //
-    // MODULE: TAPS_MULTIQC — run run_multiQC.py after all workflows complete.
+    // MODULE: TAPS_MULTIQC — run MultiQC on explicitly collected outputs after all workflows complete.
     //
-    ch_mqc_trigger = FASTQUORUM.out.multiqc_files
+    ch_multiqc_inputs = FASTQUORUM.out.multiqc_files
         .mix(RASTAIR.out.multiqc_files)
         .mix(ch_gatk_mqc_files)
+        .flatten()
         .collect()
 
     TAPS_MULTIQC(
-        ch_mqc_trigger,
-        Channel.value(params.genome ?: "Sample"),
+        ch_multiqc_inputs,
+        file("${projectDir}/assets/multiqc_config.yml"),
+        file("${projectDir}/assets/JAX_logo_rgb_transparentback.png"),
     )
 
     emit:

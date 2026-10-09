@@ -181,7 +181,7 @@ def _run(cmd, cwd, dry_run, label):
 
 # ── MultiQC ───────────────────────────────────────────────────────────────────
 
-def run_multiqc(outdir, mqc_outdir, multiqc_bin, dry_run):
+def run_multiqc(outdir, mqc_outdir, multiqc_bin, config, logo, dry_run):
     if not multiqc_bin:
         # Try known SIF locations, then fall back to PATH
         sif_candidates = [
@@ -201,13 +201,16 @@ def run_multiqc(outdir, mqc_outdir, multiqc_bin, dry_run):
     import shlex
     multiqc_cmd_prefix = shlex.split(multiqc_bin)
 
-    # Config and logo from pipeline assets/ directory adjacent to this script
-    assets_dir = SCRIPT_DIR.parent / "assets"
-    config_path = assets_dir / "multiqc_config.yml"
-    logo_path   = assets_dir / "JAX_logo_rgb_transparentback.png"
+    config_path = Path(config).resolve() if config else None
+    logo_path = Path(logo).resolve() if logo else None
 
-    config_args = ["-c", str(config_path)] if config_path.exists() else []
-    logo_args   = ["--cl-config", f'custom_logo: "{str(logo_path)}"'] if logo_path.exists() else []
+    if config_path and not config_path.is_file():
+        sys.exit(f"ERROR: MultiQC config not found: {config_path}")
+    if logo_path and not logo_path.is_file():
+        sys.exit(f"ERROR: MultiQC logo not found: {logo_path}")
+
+    config_args = ["-c", str(config_path)] if config_path else []
+    logo_args = ["--cl-config", f'custom_logo: "{logo_path}"'] if logo_path else []
 
     multiqc_outdir = outdir / "report"
 
@@ -243,6 +246,10 @@ def main():
                         help="Where to write *_mqc.tsv files (default: <outdir>/report/mqc)")
     parser.add_argument("--multiqc", default=None,
                         help="Path to multiqc executable (default: auto-detect)")
+    parser.add_argument("--config", default=None,
+                        help="Path to MultiQC config YAML")
+    parser.add_argument("--logo", default=None,
+                        help="Path to custom MultiQC logo")
     parser.add_argument("--no-multiqc", action="store_true",
                         help="Generate *_mqc.tsv files only, skip MultiQC")
     parser.add_argument("--samples", nargs="+", default=None,
@@ -287,7 +294,7 @@ def main():
     print(f"\nDone: {n_ok} OK, {n_skip} skipped (missing inputs)")
 
     if not args.no_multiqc:
-        run_multiqc(outdir, mqc_outdir, args.multiqc, args.dry_run)
+        run_multiqc(outdir, mqc_outdir, args.multiqc, args.config, args.logo, args.dry_run)
 
 
 if __name__ == "__main__":

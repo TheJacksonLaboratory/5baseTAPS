@@ -99,11 +99,11 @@ workflow FASTQUORUM {
     // FASTQ → unmapped BAM → raw aligned BAM (TC-sorted, per lane)
     // Branch: split-align-merge vs original single-task path
     //
-    if (params.align_raw_bam_chunks > 1) {
+    if ((params.align_raw_bam_chunks as Integer) > 1) {
         //
         // Split each FASTQ pair into N chunks, align in parallel, TC-sort merge
         //
-        SPLIT_FASTQ(ch_samplesheet, params.align_raw_bam_chunks)
+        SPLIT_FASTQ(ch_samplesheet, params.align_raw_bam_chunks as Integer)
         ch_versions = ch_versions.mix(SPLIT_FASTQ.out.versions.first())
 
         // Flatten N chunk pairs into individual channel items: [meta_with_chunk, [R1_chunk, R2_chunk]]
@@ -126,7 +126,7 @@ workflow FASTQUORUM {
         MERGE_CHUNKS(
             ALIGN_RAW_CHUNK.out.bam
                 .map { meta_chunk, bam -> [meta_chunk.findAll { k, v -> k != 'chunk' }, bam] }
-                .groupTuple(size: params.align_raw_bam_chunks)
+                .groupTuple(size: params.align_raw_bam_chunks as Integer)
         )
         ch_versions = ch_versions.mix(MERGE_CHUNKS.out.versions.first())
 
@@ -156,7 +156,6 @@ workflow FASTQUORUM {
     //
     SAMTOOLS_FLAGSTAT(ch_raw_bam)
     ch_versions      = ch_versions.mix(SAMTOOLS_FLAGSTAT.out.versions.first())
-    ch_multiqc_files = ch_multiqc_files.mix(SAMTOOLS_FLAGSTAT.out.flagstat.map { it[1] }.collect())
 
     //
     // Create a channel that:
@@ -193,6 +192,7 @@ workflow FASTQUORUM {
     //
     PREDEDUP_FLAGSTAT(bam_all)
     ch_versions          = ch_versions.mix(PREDEDUP_FLAGSTAT.out.versions.first())
+    ch_multiqc_files     = ch_multiqc_files.mix(PREDEDUP_FLAGSTAT.out.flagstat.map { it[1] }.collect())
     ch_prededup_flagstat = PREDEDUP_FLAGSTAT.out.flagstat
 
     //
@@ -286,6 +286,7 @@ workflow FASTQUORUM {
     //
     POSTDEDUP_FLAGSTAT(ch_final_bam)
     ch_versions = ch_versions.mix(POSTDEDUP_FLAGSTAT.out.versions.first())
+    ch_multiqc_files = ch_multiqc_files.mix(POSTDEDUP_FLAGSTAT.out.flagstat.map { it[1] }.collect())
 
     //
     // MODULE: samtools stats on consensus BAM (insert size distribution for MultiQC)
@@ -300,6 +301,8 @@ workflow FASTQUORUM {
     ch_mosdepth_in = ch_final_bam.join(ch_final_bai)
     MOSDEPTH(ch_mosdepth_in)
     ch_versions = ch_versions.mix(MOSDEPTH.out.versions.first())
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.summary.map { it[1] }.collect())
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_dist.map { it[1] }.collect())
 
     //
     // MODULE: DUPLEX_MQC — duplex deduplication summary CSV

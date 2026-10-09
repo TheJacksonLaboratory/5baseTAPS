@@ -94,6 +94,7 @@ workflow RASTAIR {
         ch_versions        = ch_versions.mix(LAMBDA_METH.out.versions)
         ch_lambda_summary  = LAMBDA_METH.out.meth_summary
         ch_lambda_flagstat = LAMBDA_METH.out.flagstat
+        ch_multiqc_files   = ch_multiqc_files.mix(ch_lambda_flagstat.map { it[1] }.collect())
     }
     if (params.puc19_fasta) {
         puc19_fasta   = Channel.fromPath(params.puc19_fasta).map { it -> [[id: it.baseName], it] }.collect()
@@ -104,6 +105,7 @@ workflow RASTAIR {
         ch_versions       = ch_versions.mix(PUC19_METH.out.versions)
         ch_puc19_summary  = PUC19_METH.out.meth_summary
         ch_puc19_flagstat = PUC19_METH.out.flagstat
+        ch_multiqc_files  = ch_multiqc_files.mix(ch_puc19_flagstat.map { it[1] }.collect())
     }
 
     //

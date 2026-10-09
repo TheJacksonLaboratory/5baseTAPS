@@ -161,6 +161,7 @@ workflow GATK_VARIANTCALL {
 
     BCFTOOLS_STATS(ch_vcf_for_stats)
     ch_versions = ch_versions.mix(BCFTOOLS_STATS.out.versions)
+    ch_multiqc_files = ch_multiqc_files.mix(BCFTOOLS_STATS.out.stats.map { it[1] }.collect())
 
     //
     // MODULE: TAPS_VC_METRICS — variant summary for MultiQC
