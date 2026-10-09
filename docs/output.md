@@ -47,6 +47,8 @@ $OUTDIR/
     │   ├── methylation/
     │   │   ├── <sample>.rastair_call.bed.gz               ← Primary methylation
     │   │   ├── <sample>.rastair_call.vcf.gz
+    │   │   ├── <sample>.rastair_call.annotated.vcf.gz         ← only with --annotate_vcf (ALT-only subset)
+    │   │   ├── <sample>.rastair_call.annotated.vcf.gz.tbi
     │   │   ├── <sample>.rastair_perread.bed.gz
     │   │   ├── <sample>.rastair_perread.bed.gz.tbi
     │   │   ├── <sample>.rastair_methylkit.txt.gz
@@ -59,6 +61,7 @@ $OUTDIR/
     │   │   ├── <sample>.haplotypecaller.filtered-SNP.vcf.gz.tbi
     │   │   ├── <sample>.haplotypecaller.filtered-INDEL.vcf.gz
     │   │   ├── <sample>.haplotypecaller.filtered-INDEL.vcf.gz.tbi
+    │   │   ├── <sample>.haplotypecaller.filtered-{SNP,INDEL}.annotated.vcf.gz{,.tbi}   ← only with --annotate_vcf
     │   │   ├── <sample>.haplotypecaller.vcf.gz
     │   │   ├── <sample>.haplotypecaller.vcf.gz.tbi
     │   │   ├── <sample>.rastair_cpg_sites.bed.gz
@@ -331,6 +334,23 @@ These files are used to estimate TAPS conversion efficiency and validate assay p
 * **`<sample>/variants/<sample>.haplotypecaller.vcf.gz`** / **`.tbi`**: Unfiltered merged VCF from all 24 scattered HaplotypeCaller shards (chr1–22, X, Y). Use the `FILTER` field (`PASS` vs `DRAGENHardQUAL`) to select high-confidence variants.
 
 * **`<sample>/variants/<sample>.rastair_cpg_sites.bed.gz`** / **`.tbi`**: 3-column BED of all CpG positions called by rastair (REF CpGs + SNP-created NEW CpGs), with adjacent CpG strand pairs merged. This is the sample-specific CpG exclusion mask passed to GATK HaplotypeCaller via `--exclude-intervals`. Useful as a benchmarking reference for comparing called CpG sites against other callers or genome-wide CpG annotations.
+
+### Annotated VCFs
+
+Written only with `--annotate_vcf true` (GRCh38 only, see [docs/usage.md](usage.md#annotated-vcfs---annotate_vcf)):
+`<sample>.haplotypecaller.filtered-SNP.annotated.vcf.gz`, `<sample>.haplotypecaller.filtered-INDEL.annotated.vcf.gz` (in `variants/`) and `<sample>.rastair_call.annotated.vcf.gz` (in `methylation/`), each with a `.tbi` index. Each is a copy of its original VCF with annotation added; CHROM, POS, REF, ALT, QUAL, FILTER and the sample columns are unchanged, so `FILTER` values (`PASS`, `DRAGENHardQUAL`, ...) carry over. (`QUAL` keeps its value but may be written as `8.0` instead of `8`.)
+
+> **The rastair annotated file is a subset of `rastair_call.vcf.gz`:** records with a real ALT allele, on `chr1`–`chr22`, `chrX`, `chrY` (`--annotate_chroms`). CpG methylation rows (`ALT=.`) and variant records on other contigs are not included. The GATK annotated files contain the same records as their originals.
+
+| Added field | Source | Meaning |
+|-------------|--------|---------|
+| `ID` column | dbSNP 151 | rsID (`.` if the allele is not in dbSNP) |
+| `INFO/gnomAD_AF` | gnomAD allele-frequency resource (`af-only-gnomad.hg38`) | Allele frequency per ALT allele. **Absent means the allele was not found, not that the frequency is 0.** |
+| `INFO/CLNSIG`, `CLNREVSTAT`, `CLNDN`, `CLNDISDB`, `GENEINFO`, `ALLELEID` | ClinVar (the release is the one named in the `clinvar` path of the genome config, for example `clinvar_20261004...`; the path is recorded in the VCF header's `##bcftools_annotateCommand` line) | Germline classification, review status, disease name and IDs, gene, ClinVar allele ID. A ClinVar match can lack `CLNSIG` when ClinVar holds no germline classification for it (`ALLELEID` is then still present). |
+| `INFO/ANN`, `LOF`, `NMD` | SnpEff 5.1d, database `hg38` (RefSeq transcripts) | Functional consequence, one entry per transcript: Allele \| Annotation \| Annotation_Impact \| Gene_Name \| Gene_ID \| Feature_Type \| Feature_ID \| Transcript_BioType \| Rank \| HGVS.c \| HGVS.p \| cDNA.pos/length \| CDS.pos/length \| AA.pos/length \| Distance \| ERRORS/WARNINGS/INFO |
+| `INFO/dbNSFP_SIFT_score`, `dbNSFP_SIFT_pred`, `dbNSFP_Polyphen2_HDIV_pred`, `dbNSFP_REVEL_score`, `dbNSFP_CADD_phred`, `dbNSFP_aapos`, `dbNSFP_Ensembl_transcriptid`, `dbNSFP_genename` | dbNSFP 4.2a via SnpSift 5.1d | In-silico scores for missense SNVs. These are **comma-separated lists with one value per Ensembl transcript**, in the same order as `dbNSFP_Ensembl_transcriptid`, although the VCF header declares them `Number=A`. SIFT: score below 0.05 is predicted damaging (`D`), otherwise tolerated (`T`). |
+
+The exact commands and resource paths used are recorded in the VCF header (`##bcftools_annotateCommand`, `##SnpEffCmd`, `##SnpSiftCmd`).
 
 ---
 

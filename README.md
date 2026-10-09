@@ -45,6 +45,7 @@ to run a single analysis path regardless of library chemistry.
 10. CpG site mask generation for GATK (derived from the rastair call BED)
 11. DRAGstr model calibration + scatter-gather SNP/INDEL calling ([GATK HaplotypeCaller](https://gatk.broadinstitute.org/))
 12. MultiQC report combining all QC metrics ([MultiQC](https://multiqc.info/))
+13. [Optional, `--annotate_vcf`, GRCh38 only] Annotated copies of the GATK and rastair VCFs: dbSNP, gnomAD, ClinVar, [SnpEff](https://pcingola.github.io/SnpEff/), dbNSFP (see [docs/usage.md](docs/usage.md#annotated-vcfs---annotate_vcf))
 
 ---
 
@@ -140,6 +141,8 @@ nextflow run . \
 | `--bwamem2` | — | Path to bwa-mem2 index directory |
 | `--outdir` | — | Output directory (required) |
 | `--run_gatk` | `true` | Run GATK HaplotypeCaller variant calling; set to false for methylation only |
+| `--annotate_vcf` | `false` | Write annotated copies of the GATK and rastair VCFs (GRCh38 only); the original VCFs are not modified |
+| `--annotate_chroms` | `chr1`–`chr22`,`chrX`,`chrY` | Comma-separated chromosomes the annotation is run on |
 | `--align_raw_bam_chunks` | `1` | Number of parallel alignment chunks applied per samplesheet row (FASTQ pair); set > 1 for high-depth FASTQ pairs (4-8) |
 | `--filter_min_reads` | `1 0 0` | Minimum reads to retain a duplex consensus (format: `AB SS DS`) |
 | `--filter_max_base_error_rate` | `0.1` | Maximum per-base error rate for consensus filtering |
