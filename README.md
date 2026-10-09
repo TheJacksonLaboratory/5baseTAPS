@@ -120,7 +120,7 @@ managed by the scheduler. Nextflow then submits each pipeline task as a separate
 
 module load singularity nextflow
 nextflow run . \
-    -profile sumner2_singularity \
+    -profile sumner2_apptainer \
     --input samplesheet.csv \
     --genome CHM13 \
     --outdir results

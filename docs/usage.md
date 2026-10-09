@@ -218,12 +218,12 @@ nextflow run /path/to/5baseTAPS/main.nf \
     --fasta     ${FASTA} \
     --fasta_fai ${FASTA}.fai \
     --dict      ${FASTA/fa/dict} \
-    -profile sumner2_singularity \
+    -profile sumner2_apptainer \
     --filter_min_reads '1 0 0' \
     --outdir result_$genRef
 ```
 
-> **Note:** Replace `sumner2_singularity` with the profile matching your HPC site (see `conf/` for available profiles). The `module load` commands and paths are site-specific.
+> **Note:** Replace `sumner2_apptainer` with the profile matching your HPC site (see `conf/` for available profiles). The `module load` commands and paths are site-specific.
 >
 > **Note:** If you are using Nextflow **v26 or later**, add `export NXF_ANSI_LOG=false` before the `nextflow run` command.
 
@@ -270,7 +270,7 @@ filter_min_reads: '1 0 0'
 Then pass it with `-params-file`:
 
 ```bash
-nextflow run /path/to/5baseTAPS/main.nf -profile sumner2_singularity -params-file params.yaml
+nextflow run /path/to/5baseTAPS/main.nf -profile sumner2_apptainer -params-file params.yaml
 ```
 
 ### Reproducibility
@@ -297,7 +297,7 @@ Selects a configuration profile for your compute environment. Available profiles
 - `docker` — use Docker containers (for local development)
 - `apptainer` — use Apptainer containers
 - `conda` — use Conda environments (last resort; containers preferred)
-- Site-specific profiles (e.g. `sumner2_singularity`) — see `conf/` directory for all available profiles
+- Site-specific profiles (e.g. `sumner2_apptainer`) — see `conf/` directory for all available profiles
 
 Multiple profiles can be combined: `-profile singularity,custom_config`.
 
