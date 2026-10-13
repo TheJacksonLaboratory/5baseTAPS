@@ -218,12 +218,12 @@ nextflow run /path/to/5baseTAPS/main.nf \
     --fasta     ${FASTA} \
     --fasta_fai ${FASTA}.fai \
     --dict      ${FASTA/fa/dict} \
-    -profile sumner2_singularity \
+    -profile sumner2_apptainer \
     --filter_min_reads '1 0 0' \
     --outdir result_$genRef
 ```
 
-> **Note:** Replace `sumner2_singularity` with the profile matching your HPC site (see `conf/` for available profiles). The `module load` commands and paths are site-specific.
+> **Note:** Replace `sumner2_apptainer` with the profile matching your HPC site (see `conf/` for available profiles). The `module load` commands and paths are site-specific.
 >
 > **Note:** If you are using Nextflow **v26 or later**, add `export NXF_ANSI_LOG=false` before the `nextflow run` command.
 
@@ -241,6 +241,77 @@ Default is `1` (no splitting). A value of 4 gives approximately 1.8× wall-time 
 
 > **Warning:** Each chunk becomes a separate SLURM job submitted concurrently. Most HPC schedulers enforce a per-user job submission limit. Running multiple samples with a high chunk count can exhaust this limit, causing jobs to queue rather than run in parallel and negating the speedup. As a practical guide: `(number of samples) × (chunk count)` alignment jobs will be submitted simultaneously — keep this product within your site's job limit. When in doubt, use `--align_raw_bam_chunks 4` as a conservative default.
 
+
+### Annotated VCFs (`--annotate_vcf`)
+
+Optional and off by default. With `--annotate_vcf true` the pipeline writes **additional, annotated copies** of the variant files. The original VCFs are not modified.
+
+```bash
+nextflow run /path/to/5baseTAPS/main.nf ... --genome GRCh38 --annotate_vcf true
+```
+
+| Input VCF | New annotated file | Location |
+|-----------|--------------------|----------|
+| `<sample>.haplotypecaller.filtered-SNP.vcf.gz` | `<sample>.haplotypecaller.filtered-SNP.annotated.vcf.gz` (+ `.tbi`) | `<sample>/variants/` |
+| `<sample>.haplotypecaller.filtered-INDEL.vcf.gz` | `<sample>.haplotypecaller.filtered-INDEL.annotated.vcf.gz` (+ `.tbi`) | `<sample>/variants/` |
+| `<sample>.rastair_call.vcf.gz` | `<sample>.rastair_call.annotated.vcf.gz` (+ `.tbi`) | `<sample>/methylation/` |
+
+**What is a subset of the original**
+
+* **`--annotate_chroms` applies to all three annotated files** (GATK SNP, GATK INDEL and rastair). Only the listed chromosomes are annotated; records on any other chromosome are **left out** of the annotated files, not kept unannotated. The default is `chr1`–`chr22`, `chrX`, `chrY`. Give a shorter list to annotate only some chromosomes (for example `--annotate_chroms chr1,chr2`, which also means fewer tasks), or add contigs if you need them. The names must match the VCF contig names exactly (`chr1`, not `1`).
+* With the default list, the GATK annotated files contain the same records as the corresponding original VCFs, because HaplotypeCaller only calls `chr1`–`chr22`, `chrX`, `chrY`. With a shorter list they contain only the listed chromosomes.
+* **The rastair annotated file is always a subset of `rastair_call.vcf.gz`.** The original is mostly CpG methylation rows with no variant (`ALT=.`); only records with a real ALT allele are annotated and kept, and only on the chromosomes in `--annotate_chroms`. With the default list, variant records on other contigs (alt, random, unplaced) are not in the annotated file.
+
+**Requirements**
+
+* `--genome GRCh38` only. Any other genome stops the run with an error, because the annotation resources are GRCh38.
+* The resources are read from the genome configuration (the `GRCh38` block of `conf/genomes_elion.config` on the JAX Elion cluster and of `conf/genomes_sumner.config` on Sumner2): `dbsnp`, `gnomad_af`, `clinvar`, `dbnsfp`, `snpeff_db` and `snpeff_config`. A site that is neither Elion nor Sumner2 must define these six entries for GRCh38 in its own genome config; if any is missing the run stops with an error naming it.
+* `dbsnp`, `gnomad_af` and `clinvar` must be bgzipped VCFs with a tabix index (`.tbi` next to the file) and `chr`-prefixed contig names (`chr1`, `chr2`, ...), like the pipeline's VCFs. **A resource with different contig names (for example `1`, `2`) does not cause an error: the step finishes successfully and annotates nothing.** The NCBI ClinVar download uses bare names, see [Preparing the ClinVar file](#preparing-the-clinvar-file).
+* `dbnsfp` is the opposite: it must be a bare-chromosome-name file (no `chr` prefix), because SnpSift `dbnsfp` strips `chr` from the VCF contigs before looking up the database; a `chr`-prefixed database annotates nothing. The pipeline stops if the dbNSFP step annotates 0 entries although SnpEff called 20 or more missense variants on that chromosome.
+* `snpeff_db` is the SnpEff database name (`hg38` on Elion) and `snpeff_config` the path to the `snpEff.config` whose `data.dir` contains it.
+
+Example entries for a site that defines its own genome config (the paths are placeholders; the Elion values are in `conf/genomes_elion.config`):
+
+```groovy
+params {
+    genomes {
+        GRCh38 {
+            // ... fasta, fasta_fai, dict, bwamem2 ...
+            dbsnp         = "/path/to/dbsnp_151.vcf.gz"                        // + .tbi, chr-prefixed
+            gnomad_af     = "/path/to/af-only-gnomad.hg38.vcf.gz"              // + .tbi, chr-prefixed
+            clinvar       = "/path/to/clinvar_<date>.GRCh38.chr.vcf.gz"        // + .tbi, chr-prefixed
+            dbnsfp        = "/path/to/dbNSFP4.2a.gatk_formatted.nochr.txt.gz"  // + .tbi + .data_types, no 'chr'
+            snpeff_db     = "hg38"
+            snpeff_config = "/path/to/snpEff.config"
+        }
+    }
+}
+```
+
+**Cost:** the annotation is scattered per chromosome, so it adds about 220 tasks per sample (24 chromosomes × 3 VCFs × 3 steps, plus 4 selection and merge tasks). Keep your scheduler's job-submission limit in mind, as for `--align_raw_bam_chunks`.
+
+The fields added are described in [docs/output.md](output.md#annotated-vcfs-optional).
+
+#### Preparing the ClinVar file
+
+The NCBI file (`https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz`) names contigs `1`, `2`, ... `MT` and includes a few records on non-primary contigs. The recipe below renames the primary contigs to the `chr` names of your reference, drops the other records and indexes the result. It needs `bcftools` and your reference `.fai`:
+
+```bash
+FAI=/path/to/genome.fa.fai          # GRCh38 reference with chr-prefixed names (chrM for the mitochondrion)
+curl -O https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.md5
+[ "$(cut -d' ' -f1 clinvar.vcf.gz.md5)" = "$(md5sum clinvar.vcf.gz | cut -d' ' -f1)" ] || echo "md5 mismatch"
+DATE=$({ zcat clinvar.vcf.gz || true; } | grep -m1 '^##fileDate=' | cut -d= -f2 | tr -d -)
+
+zcat clinvar.vcf.gz | awk -v FAI=$FAI 'BEGIN{FS=OFS="\t"; while((getline l < FAI)>0){split(l,a,"\t"); len[a[1]]=a[2]}}
+/^##/ {print; next}
+/^#CHROM/ { n=split("chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY chrM",c," "); for(i=1;i<=n;i++) print "##contig=<ID=" c[i] ",length=" len[c[i]] ">"; print; next}
+{ k=$1; if(k=="MT") k="M"; if(k ~ /^([1-9]|1[0-9]|2[0-2]|X|Y|M)$/){ $1="chr" k; print } }' \
+  | bcftools view -Oz -o clinvar_${DATE}.GRCh38.chr.vcf.gz
+bcftools index -t clinvar_${DATE}.GRCh38.chr.vcf.gz
+```
+
+Name the output with the ClinVar release date, as above, so a later refresh becomes a new file and the version used is visible in the VCF header's command lines.
 
 ### Output files
 
@@ -270,7 +341,7 @@ filter_min_reads: '1 0 0'
 Then pass it with `-params-file`:
 
 ```bash
-nextflow run /path/to/5baseTAPS/main.nf -profile sumner2_singularity -params-file params.yaml
+nextflow run /path/to/5baseTAPS/main.nf -profile sumner2_apptainer -params-file params.yaml
 ```
 
 ### Reproducibility
@@ -297,7 +368,7 @@ Selects a configuration profile for your compute environment. Available profiles
 - `docker` — use Docker containers (for local development)
 - `apptainer` — use Apptainer containers
 - `conda` — use Conda environments (last resort; containers preferred)
-- Site-specific profiles (e.g. `sumner2_singularity`) — see `conf/` directory for all available profiles
+- Site-specific profiles (e.g. `sumner2_apptainer`) — see `conf/` directory for all available profiles
 
 Multiple profiles can be combined: `-profile singularity,custom_config`.
 

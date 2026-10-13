@@ -16,6 +16,7 @@
 include { FASTQUORUM          } from './workflows/fastquorum'
 include { RASTAIR              } from './workflows/rastair'
 include { GATK_VARIANTCALL as GATK } from './workflows/gatk_variantcall'
+include { ANNOTATE_VCF       } from './subworkflows/local/annotate_vcf/main'
 include { TAPS_QC_REPORT      } from './modules/local/taps_qc_report/main'
 include { TAPS_MULTIQC        } from './modules/local/taps_multiqc/main'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_fastquorum_pipeline'
@@ -216,6 +217,41 @@ workflow JAXGT_5BASETAPS {
 
         ch_vc_metrics_csv  = GATK.out.vc_metrics_csv
         ch_gatk_mqc_files  = GATK.out.mqc_files
+    }
+
+    //
+    // WORKFLOW: Annotated copies of the GATK and rastair VCFs (GRCh38 only) — extra files,
+    //   the original VCFs are untouched. Enable with --annotate_vcf.
+    //
+    if (params.annotate_vcf) {
+        if (params.genome != 'GRCh38') {
+            log.error("--annotate_vcf is only supported for --genome GRCh38 (got '${params.genome}'): the annotation resources are GRCh38")
+            exit(1)
+        }
+        def ann_res = [ 'dbsnp', 'gnomad_af', 'clinvar', 'dbnsfp', 'snpeff_db', 'snpeff_config' ].collectEntries { k -> [ (k): getGenomeAttribute(k) ] }
+        def ann_missing = ann_res.findAll { k, v -> !v }.keySet()
+        if (ann_missing) {
+            log.error("--annotate_vcf: genome config for GRCh38 does not define: ${ann_missing.join(', ')}")
+            exit(1)
+        }
+
+        ch_ann_indexed = params.run_gatk
+            ? GATK.out.snp_vcf.join(GATK.out.snp_tbi).map { meta, vcf, tbi -> [ meta, 'haplotypecaller.filtered-SNP', vcf, tbi ] }
+                .mix(GATK.out.indel_vcf.join(GATK.out.indel_tbi).map { meta, vcf, tbi -> [ meta, 'haplotypecaller.filtered-INDEL', vcf, tbi ] })
+            : Channel.empty()
+        ch_ann_rastair = RASTAIR.out.rastair_vcf.map { meta, vcf -> [ meta, 'rastair_call', vcf ] }
+
+        ANNOTATE_VCF(
+            ch_ann_indexed,
+            ch_ann_rastair,
+            params.annotate_chroms.tokenize(','),
+            ann_res.dbsnp,
+            ann_res.gnomad_af,
+            ann_res.clinvar,
+            ann_res.dbnsfp,
+            ann_res.snpeff_db,
+            ann_res.snpeff_config,
+        )
     }
 
     //
