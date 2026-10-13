@@ -342,7 +342,7 @@ These files are used to estimate TAPS conversion efficiency and validate assay p
 Written only with `--annotate_vcf true` (GRCh38 only, see [docs/usage.md](usage.md#annotated-vcfs---annotate_vcf)):
 `<sample>.haplotypecaller.filtered-SNP.annotated.vcf.gz`, `<sample>.haplotypecaller.filtered-INDEL.annotated.vcf.gz` (in `variants/`) and `<sample>.rastair_call.annotated.vcf.gz` (in `methylation/`), each with a `.tbi` index. Each is a copy of its original VCF with annotation added; CHROM, POS, REF, ALT, QUAL, FILTER and the sample columns are unchanged, so `FILTER` values (`PASS`, `DRAGENHardQUAL`, ...) carry over. (`QUAL` keeps its value but may be written as `8.0` instead of `8`.)
 
-> **The rastair annotated file is a subset of `rastair_call.vcf.gz`:** records with a real ALT allele, on `chr1`–`chr22`, `chrX`, `chrY` (`--annotate_chroms`). CpG methylation rows (`ALT=.`) and variant records on other contigs are not included. The GATK annotated files contain the same records as their originals.
+> **Which records are in the annotated files:** `--annotate_chroms` (default `chr1`–`chr22`, `chrX`, `chrY`) applies to all three annotated files; records on other chromosomes are not included. The GATK annotated files then contain the same records as their originals (HaplotypeCaller only calls those chromosomes), unless you give a shorter list. **The rastair annotated file is always a subset of `rastair_call.vcf.gz`:** only records with a real ALT allele; CpG methylation rows (`ALT=.`) and variant records on other contigs are not included.
 
 **Sources** (versions as configured on the JAX Elion cluster; other sites set their own in the genome config):
 

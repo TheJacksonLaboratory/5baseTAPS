@@ -142,7 +142,7 @@ nextflow run . \
 | `--outdir` | — | Output directory (required) |
 | `--run_gatk` | `true` | Run GATK HaplotypeCaller variant calling; set to false for methylation only |
 | `--annotate_vcf` | `false` | Write annotated copies of the GATK and rastair VCFs (GRCh38 only); the original VCFs are not modified |
-| `--annotate_chroms` | `chr1`–`chr22`,`chrX`,`chrY` | Comma-separated chromosomes the annotation is run on |
+| `--annotate_chroms` | `chr1`–`chr22`,`chrX`,`chrY` | Comma-separated chromosomes to annotate, for all annotated VCFs; records on other chromosomes are not in the annotated files |
 | `--align_raw_bam_chunks` | `1` | Number of parallel alignment chunks applied per samplesheet row (FASTQ pair); set > 1 for high-depth FASTQ pairs (4-8) |
 | `--filter_min_reads` | `1 0 0` | Minimum reads to retain a duplex consensus (format: `AB SS DS`) |
 | `--filter_max_base_error_rate` | `0.1` | Maximum per-base error rate for consensus filtering |

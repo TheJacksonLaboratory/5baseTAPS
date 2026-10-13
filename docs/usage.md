@@ -258,8 +258,9 @@ nextflow run /path/to/5baseTAPS/main.nf ... --genome GRCh38 --annotate_vcf true
 
 **What is a subset of the original**
 
-* The GATK annotated files contain the same records as the corresponding original VCFs.
-* **The rastair annotated file is a subset of `rastair_call.vcf.gz`.** The original is mostly CpG methylation rows with no variant (`ALT=.`); only records with a real ALT allele are annotated and kept, and only on the chromosomes in `--annotate_chroms` (default `chr1`–`chr22`, `chrX`, `chrY`). Variant records on other contigs (alt, random, unplaced) are not in the annotated file. Add contigs with `--annotate_chroms` if you need them.
+* **`--annotate_chroms` applies to all three annotated files** (GATK SNP, GATK INDEL and rastair). Only the listed chromosomes are annotated; records on any other chromosome are **left out** of the annotated files, not kept unannotated. The default is `chr1`–`chr22`, `chrX`, `chrY`. Give a shorter list to annotate only some chromosomes (for example `--annotate_chroms chr1,chr2`, which also means fewer tasks), or add contigs if you need them. The names must match the VCF contig names exactly (`chr1`, not `1`).
+* With the default list, the GATK annotated files contain the same records as the corresponding original VCFs, because HaplotypeCaller only calls `chr1`–`chr22`, `chrX`, `chrY`. With a shorter list they contain only the listed chromosomes.
+* **The rastair annotated file is always a subset of `rastair_call.vcf.gz`.** The original is mostly CpG methylation rows with no variant (`ALT=.`); only records with a real ALT allele are annotated and kept, and only on the chromosomes in `--annotate_chroms`. With the default list, variant records on other contigs (alt, random, unplaced) are not in the annotated file.
 
 **Requirements**
 
